@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-multipart
+sentence-transformers
+faiss-cpu
+requests
+python-dotenv
+passlib[bcrypt]
+PyJWT
+python-docx
+PyMuPDF
+twilio
+streamlit
+numpy
