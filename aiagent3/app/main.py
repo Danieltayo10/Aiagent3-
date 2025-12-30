@@ -1,16 +1,17 @@
 from fastapi import FastAPI
-from . import auth, ingest, query, automation
-from .database import Base, engine
+import sys
 
-# Create all tables
-Base.metadata.create_all(bind=engine)
+print("=== APP IMPORT STARTED ===")
+print("Python version:", sys.version)
 
+app = FastAPI()
 
-app = FastAPI(title="Autonomous Multi-Client AI Agent")
+@app.get("/")
+def root():
+    return {"status": "alive"}
 
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(ingest.router, prefix="/api", tags=["ingest"])
-app.include_router(query.router, prefix="/api", tags=["query"])
-app.include_router(automation.router, prefix="/api", tags=["automation"])
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}
 
-
+print("=== APP READY ===")
