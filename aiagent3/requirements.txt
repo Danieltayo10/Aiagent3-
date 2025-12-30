@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
 sqlalchemy
 pydantic
 python-multipart
@@ -15,5 +15,6 @@ twilio
 streamlit
 numpy
 python-jose[cryptography]
+
 
 
