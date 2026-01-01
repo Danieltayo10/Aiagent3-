@@ -2,7 +2,7 @@
 import faiss
 import numpy as np
 import os
-from .embedder import get_embedding
+from app.embedder import get_embedding
 
 FAISS_DIR = "app/faiss_index"
 os.makedirs(FAISS_DIR, exist_ok=True)
@@ -20,4 +20,5 @@ def save_index(user_id: int, index):
 def add_embeddings(user_id: int, embeddings: np.ndarray):
     index = get_index(user_id)
     index.add(embeddings)
+
     save_index(user_id, index)
