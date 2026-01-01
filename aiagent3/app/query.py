@@ -8,10 +8,10 @@ import pickle
 from typing import Optional
 from pydantic import BaseModel
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from .security import decode_access_token
-from .index import get_index
-from .embedder import get_embedding
-from .clientell import client  # your OpenAI client
+from app.security import decode_access_token
+from app.index import get_index
+from app.embedder import get_embedding
+from app.clientell import client  # your OpenAI client
 
 load_dotenv()
 
@@ -108,3 +108,4 @@ async def query_agent(request: QueryRequest, user_id: int = Depends(get_user_id)
             answer += f"\n\n(Warning: SMS send failed: {e})"
 
     return {"answer": answer}
+
