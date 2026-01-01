@@ -11,7 +11,7 @@ app = FastAPI(title="Autonomous Multi-Client AI Agent")
 # Routers
 # --------------------
 try:
-    from app import auth, ingest, query, automation
+    from . import auth, ingest, query, automation
 
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     app.include_router(ingest.router, prefix="/api", tags=["ingest"])
@@ -37,4 +37,5 @@ async def startup_event():
     except Exception:
         print("❌ DATABASE INIT ERROR")
         traceback.print_exc()
+
 
