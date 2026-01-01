@@ -1,8 +1,8 @@
 # app/routes/ingest.py
 from fastapi import APIRouter, File, UploadFile, Depends, HTTPException
-from .index import add_embeddings, get_index, save_index
-from .embedder import get_embedding
-from .security import decode_access_token
+from app.index import add_embeddings, get_index, save_index
+from app.embedder import get_embedding
+from app.security import decode_access_token
 import numpy as np
 import fitz  # PyMuPDF for PDF
 from docx import Document
@@ -58,3 +58,4 @@ async def ingest(file: UploadFile = File(...), user_id: int = Depends(get_user_i
         pickle.dump(chunks, f)
 
     return {"status": "success", "chunks": len(chunks)}
+
