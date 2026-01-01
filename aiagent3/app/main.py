@@ -1,40 +1,57 @@
 import traceback
 from fastapi import FastAPI
 
-print("=== APP STARTING ===")
+print("=== STEP 0: main.py imported ===", flush=True)
 
-app = FastAPI(title="Autonomous Multi-Client AI Agent")
+app = FastAPI()
 
 @app.get("/")
 def root():
     return {"status": "alive"}
 
+def trace(msg):
+    print(f"🔍 {msg}", flush=True)
+
 # --------------------
-# Routers
+# Router imports (ONE BY ONE)
 # --------------------
 try:
-    from app import auth, ingest, query, automation
+    trace("importing auth")
+    from app import auth
+    trace("including auth")
+    app.include_router(auth.router)
 
-    app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-    app.include_router(ingest.router, prefix="/api", tags=["ingest"])
-    app.include_router(query.router, prefix="/api", tags=["query"])
-    app.include_router(automation.router, prefix="/api", tags=["automation"])
+    trace("importing ingest")
+    from app import ingest
+    trace("including ingest")
+    app.include_router(ingest.router)
 
-    print("✅ Routers loaded")
+    trace("importing query")
+    from app import query
+    trace("including query")
+    app.include_router(query.router)
+
+    trace("importing automation")
+    from app import automation
+    trace("including automation")
+    app.include_router(automation.router)
+
+    trace("ALL ROUTERS LOADED")
 except Exception:
-    print("❌ ROUTER IMPORT ERROR")
+    trace("❌ ROUTER LOAD FAILED")
     traceback.print_exc()
 
 # --------------------
-# Startup event
+# Startup (NON-BLOCKING)
 # --------------------
 @app.on_event("startup")
-async def startup_event():
+async def startup():
+    trace("startup entered")
     try:
         from app.database import Base, engine
-        print("Creating database tables...")
+        trace("creating tables")
         Base.metadata.create_all(bind=engine)
-        print("✅ Database ready")
+        trace("db ready")
     except Exception:
-        print("⚠️ Database init skipped")
+        trace("⚠️ db init failed")
         traceback.print_exc()
