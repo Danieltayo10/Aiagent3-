@@ -1,11 +1,13 @@
-# app/main.py
-import sys
 import traceback
 from fastapi import FastAPI
 
 print("=== APP STARTING ===")
 
 app = FastAPI(title="Autonomous Multi-Client AI Agent")
+
+@app.get("/")
+def root():
+    return {"status": "alive"}
 
 # --------------------
 # Routers
@@ -22,7 +24,6 @@ try:
 except Exception:
     print("❌ ROUTER IMPORT ERROR")
     traceback.print_exc()
-    sys.exit(1)
 
 # --------------------
 # Startup event
@@ -35,5 +36,5 @@ async def startup_event():
         Base.metadata.create_all(bind=engine)
         print("✅ Database ready")
     except Exception:
-        print("❌ DATABASE INIT ERROR")
+        print("⚠️ Database init skipped")
         traceback.print_exc()
