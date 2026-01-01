@@ -37,3 +37,4 @@ async def startup_event():
     except Exception:
         print("❌ DATABASE INIT ERROR")
         traceback.print_exc()
+
