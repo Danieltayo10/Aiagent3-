@@ -35,22 +35,22 @@ try:
     trace("importing auth")
     from app.auth import router as auth_router
     trace("including auth")
-    app.include_router(auth_router, prefix="/auth", tags=["Auth"])
+    app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 
     trace("importing ingest")
     from app.ingest import router as ingest_router
     trace("including ingest")
-    app.include_router(ingest_router, prefix="/ingest", tags=["Ingest"])
+    app.include_router(ingest.router, prefix="/api", tags=["ingest"])
 
     trace("importing query")
     from app.query import router as query_router
     trace("including query")
-    app.include_router(query_router, prefix="/query", tags=["Query"])
+    app.include_router(query.router, prefix="/api", tags=["query"])
 
     trace("importing automation")
     from app.automation import router as automation_router
     trace("including automation")
-    app.include_router(automation_router, prefix="/automation", tags=["Automation"])
+    app.include_router(automation.router, prefix="/api", tags=["automation"])
 
     trace("ALL ROUTERS LOADED SUCCESSFULLY")
 
@@ -72,4 +72,5 @@ async def startup():
     except Exception:
         trace("⚠️ db init failed")
         traceback.print_exc()
+
 
