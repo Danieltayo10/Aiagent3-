@@ -9,7 +9,7 @@ st.set_page_config(page_title="Autonomous AI Agent", layout="wide")
 # ------------------------------
 # Base API URL
 # ------------------------------
-API_BASE = "https://aiagent3-oqik.onrender.com"
+API_BASE = "https://aiagentfastapi.onrender.com"
 
 # ------------------------------
 # Session State Initialization
@@ -146,3 +146,4 @@ sms_number = st.text_input(
 
 if st.button("Ask AI"):
     ask_question(query, sms_number if sms_number else None)
+
