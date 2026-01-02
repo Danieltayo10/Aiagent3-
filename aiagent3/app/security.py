@@ -6,7 +6,7 @@ import os
 # ------------------------------
 # Password & JWT settings
 # ------------------------------
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 JWT_SECRET = os.getenv("JWT_SECRET", "supersecret")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
@@ -38,3 +38,4 @@ def create_access_token(data: dict, expires_delta=None) -> str:
 
 def decode_access_token(token: str) -> dict:
     return jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
+
