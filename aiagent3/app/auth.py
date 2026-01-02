@@ -31,7 +31,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     token = create_access_token({"user_id": db_user.id})
-    return {"access_token": token}
+    return {"access_token": token, "token_type": "bearer"}
 
 @router.post("/login", response_model=Token)
 def login(user: UserCreate, db: Session = Depends(get_db)):
@@ -40,4 +40,5 @@ def login(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     token = create_access_token({"user_id": db_user.id})
 
-    return {"access_token": token}
+    return {"access_token": token, "token_type": "bearer"}
+
