@@ -16,6 +16,8 @@ streamlit
 numpy
 python-jose[cryptography]
 openai
+argon2-cffi
+
 
 
 
