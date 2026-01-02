@@ -7,6 +7,19 @@ app = FastAPI(
     title="Autonomous Multi-Client AI Agent",
     version="1.0.0"
 )
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = [
+    "*",  # allow all for now; can restrict to your Streamlit URL later
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def root():
@@ -59,3 +72,4 @@ async def startup():
     except Exception:
         trace("⚠️ db init failed")
         traceback.print_exc()
+
