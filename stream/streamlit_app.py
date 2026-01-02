@@ -146,5 +146,3 @@ sms_number = st.text_input(
 
 if st.button("Ask AI"):
     ask_question(query, sms_number if sms_number else None)
-
-
