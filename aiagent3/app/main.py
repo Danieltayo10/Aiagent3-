@@ -3,46 +3,50 @@ from fastapi import FastAPI
 
 print("=== STEP 0: main.py imported ===", flush=True)
 
-app = FastAPI()
+app = FastAPI(
+    title="Autonomous Multi-Client AI Agent",
+    version="1.0.0"
+)
 
 @app.get("/")
 def root():
     return {"status": "alive"}
 
-def trace(msg):
+def trace(msg: str):
     print(f"🔍 {msg}", flush=True)
 
 # --------------------
-# Router imports (ONE BY ONE)
+# Routers
 # --------------------
 try:
     trace("importing auth")
-    from app import auth
+    from app.auth import router as auth_router
     trace("including auth")
-    app.include_router(auth.router)
+    app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
     trace("importing ingest")
-    from app import ingest
+    from app.ingest import router as ingest_router
     trace("including ingest")
-    app.include_router(ingest.router)
+    app.include_router(ingest_router, prefix="/ingest", tags=["Ingest"])
 
     trace("importing query")
-    from app import query
+    from app.query import router as query_router
     trace("including query")
-    app.include_router(query.router)
+    app.include_router(query_router, prefix="/query", tags=["Query"])
 
     trace("importing automation")
-    from app import automation
+    from app.automation import router as automation_router
     trace("including automation")
-    app.include_router(automation.router)
+    app.include_router(automation_router, prefix="/automation", tags=["Automation"])
 
-    trace("ALL ROUTERS LOADED")
+    trace("ALL ROUTERS LOADED SUCCESSFULLY")
+
 except Exception:
     trace("❌ ROUTER LOAD FAILED")
     traceback.print_exc()
 
 # --------------------
-# Startup (NON-BLOCKING)
+# Startup (DB init)
 # --------------------
 @app.on_event("startup")
 async def startup():
