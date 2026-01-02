@@ -15,6 +15,9 @@ twilio
 streamlit
 numpy
 python-jose[cryptography]
+openai
+
+
 
 
 
