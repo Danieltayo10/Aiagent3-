@@ -7,9 +7,9 @@ load_dotenv()
 st.set_page_config(page_title="Autonomous AI Agent", layout="wide")
 
 # ------------------------------
-# Base API URL (include /api since all routers are prefixed)
+# Base API URL
 # ------------------------------
-API_BASE = "https://aiagentfastapi.onrender.com/api"
+API_BASE = "https://aiagentfastapi.onrender.com"
 
 # ------------------------------
 # Session State Initialization
@@ -84,8 +84,9 @@ def ask_question(query: str, sms_number: str | None):
         return
 
     payload = {"query": query}
+
     if sms_number:
-        payload["send_sms_to"] = sms_number
+        payload["send_sms_to"] = sms_number  # ✅ matches query.py exactly
 
     res = requests.post(
         f"{API_BASE}/query",
