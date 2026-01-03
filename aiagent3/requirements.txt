@@ -17,6 +17,9 @@ numpy
 python-jose[cryptography]
 openai
 argon2-cffi
+psycopg2-binary
+
+
 
 
 
