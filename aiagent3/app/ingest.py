@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, Depends, HTTPException
+from fastapi import APIRouter, File, UploadFile, Depends, HTTPException, BackgroundTasks
 from app.index import add_embeddings, get_index, save_index
 from app.embedder import get_embedding
 from app.security import decode_access_token
@@ -14,6 +14,9 @@ JWT_SECRET = "supersecretkey123"
 ALGORITHM = "HS256"
 security = HTTPBearer()
 
+# -----------------------------
+# Helper: decode JWT and get user
+# -----------------------------
 def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> int:
     token = credentials.credentials
     if not token:
@@ -29,7 +32,10 @@ def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-def read_file(file: UploadFile):
+# -----------------------------
+# Helper: read uploaded file
+# -----------------------------
+def read_file(file: UploadFile) -> str:
     ext = file.filename.split(".")[-1].lower()
     try:
         if ext == "txt":
@@ -46,35 +52,56 @@ def read_file(file: UploadFile):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"File read failed: {e}")
 
-@router.post("/ingest")
-async def ingest(file: UploadFile = File(...), user_id: int = Depends(get_user_id)):
+# -----------------------------
+# Helper: process file in background
+# -----------------------------
+def process_file(file_data: UploadFile, user_id: int):
     try:
-        # Ensure FAISS folder exists
-        os.makedirs("/tmp/faiss_index", exist_ok=True)
+        # Use /tmp/faiss_index for Render writable storage
+        faiss_dir = "/tmp/faiss_index"
+        os.makedirs(faiss_dir, exist_ok=True)
 
-        text = read_file(file)
+        text = read_file(file_data)
         chunks = [text[i:i+500] for i in range(0, len(text), 500)]
-        
-        # compute embeddings safely
+
         embeddings = []
         for c in chunks:
             try:
                 embeddings.append(get_embedding(c))
             except Exception as e:
                 print(f"Warning: embedding failed for chunk: {e}")
+        if not embeddings:
+            raise Exception("No embeddings generated.")
+
         embeddings = np.stack(embeddings)
 
-        # Add embeddings to FAISS
+        # Add to FAISS
         add_embeddings(user_id, embeddings)
 
         # Save chunks
-        chunks_path = os.path.join("app/faiss_index", f"{user_id}_chunks.pkl")
+        chunks_path = os.path.join(faiss_dir, f"{user_id}_chunks.pkl")
         with open(chunks_path, "wb") as f:
             pickle.dump(chunks, f)
 
-        return {"status": "success", "chunks": len(chunks)}
+        print(f"✅ Ingest complete for user {user_id}, {len(chunks)} chunks")
 
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Ingest failed: {e}")
+        print(f"❌ Ingest failed for user {user_id}")
 
+# -----------------------------
+# Endpoint: ingest document
+# -----------------------------
+@router.post("/ingest")
+async def ingest(file: UploadFile = File(...), user_id: int = Depends(get_user_id), background_tasks: BackgroundTasks = None):
+    """
+    Uploads a document, splits it into chunks, computes embeddings, and stores them.
+    Runs in background to avoid hanging the API on Render.
+    """
+    if background_tasks is None:
+        raise HTTPException(status_code=500, detail="BackgroundTasks not available")
+
+    # Add task to background
+    background_tasks.add_task(process_file, file, user_id)
+
+    return {"status": "processing", "message": "Document is being processed in the background"}
