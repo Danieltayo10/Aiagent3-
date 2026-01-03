@@ -33,24 +33,24 @@ def trace(msg: str):
 # --------------------
 try:
     trace("importing auth")
-    from app.auth import router as auth_router
+    from app.auth import router as aut
     trace("including auth")
-    app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+    app.include_router(aut.router, prefix="/api/auth", tags=["auth"])
 
     trace("importing ingest")
-    from app.ingest import router as ingest_router
+    from app.ingest import router as inges
     trace("including ingest")
-    app.include_router(ingest.router, prefix="/api", tags=["ingest"])
+    app.include_router(inges.router, prefix="/api", tags=["ingest"])
 
     trace("importing query")
-    from app.query import router as query_router
+    from app.query import router as quer
     trace("including query")
-    app.include_router(query.router, prefix="/api", tags=["query"])
+    app.include_router(quer.router, prefix="/api", tags=["query"])
 
     trace("importing automation")
-    from app.automation import router as automation_router
+    from app.automation import router as automatio
     trace("including automation")
-    app.include_router(automation.router, prefix="/api", tags=["automation"])
+    app.include_router(automatio.router, prefix="/api", tags=["automation"])
 
     trace("ALL ROUTERS LOADED SUCCESSFULLY")
 
@@ -72,5 +72,6 @@ async def startup():
     except Exception:
         trace("⚠️ db init failed")
         traceback.print_exc()
+
 
 
