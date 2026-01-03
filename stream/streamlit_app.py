@@ -114,7 +114,7 @@ if st.session_state.get("logged_in_user"):
     if st.sidebar.button("Logout"):
         st.session_state["jwt_token"] = None
         st.session_state["logged_in_user"] = None
-        st.experimental_rerun()  # <- Fixes unresponsive logout
+        st.rerun()  # <- Fixes unresponsive logout
 else:
     mode = st.sidebar.selectbox("Mode", ["Login", "Register"])
     username = st.sidebar.text_input("Username")
@@ -149,3 +149,4 @@ else:
 
     if st.button("Ask AI"):
         ask_question(query, sms_number if sms_number else None)
+
