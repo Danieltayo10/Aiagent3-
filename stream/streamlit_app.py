@@ -114,7 +114,7 @@ if st.session_state.get("logged_in_user"):
     if st.sidebar.button("Logout"):
         st.session_state["jwt_token"] = None
         st.session_state["logged_in_user"] = None
-        st.sidebar.info("Logged out")
+        st.experimental_rerun()  # <- Fixes unresponsive logout
 else:
     mode = st.sidebar.selectbox("Mode", ["Login", "Register"])
     username = st.sidebar.text_input("Username")
@@ -131,19 +131,21 @@ else:
 # ------------------------------
 st.title("Autonomous AI Agent (SMS Enabled)")
 
-# Upload docs
-st.subheader("Upload Documents")
-file = st.file_uploader("PDF, TXT, DOCX", type=["pdf", "txt", "docx"])
-if file and st.button("Upload"):
-    upload_document(file)
+if not st.session_state.get("logged_in_user"):
+    st.info("Please log in to upload documents or ask questions.")
+else:
+    # Upload docs
+    st.subheader("Upload Documents")
+    file = st.file_uploader("PDF, TXT, DOCX", type=["pdf", "txt", "docx"])
+    if file and st.button("Upload"):
+        upload_document(file)
 
-# Query + SMS
-st.subheader("Ask a Question")
-query = st.text_input("Your question")
-sms_number = st.text_input(
-    "Send summary via SMS (optional, e.g. +2349123456789)"
-)
+    # Query + SMS
+    st.subheader("Ask a Question")
+    query = st.text_input("Your question")
+    sms_number = st.text_input(
+        "Send summary via SMS (optional, e.g. +2349123456789)"
+    )
 
-if st.button("Ask AI"):
-    ask_question(query, sms_number if sms_number else None)
-
+    if st.button("Ask AI"):
+        ask_question(query, sms_number if sms_number else None)
