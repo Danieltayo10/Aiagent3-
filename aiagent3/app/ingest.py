@@ -1,8 +1,8 @@
 # app/routes/ingest.py
 from fastapi import APIRouter, File, UploadFile, Depends, HTTPException
-from .index import add_embeddings, get_index, save_index
-from .embedder import get_embedding
-from .security import decode_access_token
+from app.index import add_embeddings, get_index, save_index
+from app.embedder import get_embedding
+from app.security import decode_access_token
 import numpy as np
 import fitz  # PyMuPDF for PDF
 from docx import Document
@@ -11,10 +11,23 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt
 
 router = APIRouter()
-JWT_SECRET = "supersecretkey123"
 ALGORITHM = "HS256"
 security = HTTPBearer()
 
+# ------------------------------
+# JWT secret from environment (fallback for local)
+# ------------------------------
+JWT_SECRET = os.environ.get("JWT_SECRET", "supersecretkey123")
+
+# ------------------------------
+# FAISS index directory (use /tmp on Render)
+# ------------------------------
+FAISS_DIR = "/tmp/faiss_index"
+os.makedirs(FAISS_DIR, exist_ok=True)
+
+# ------------------------------
+# JWT dependency
+# ------------------------------
 def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> int:
     token = credentials.credentials
     if not token:
@@ -30,6 +43,9 @@ def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+# ------------------------------
+# File reader
+# ------------------------------
 def read_file(file: UploadFile):
     ext = file.filename.split(".")[-1].lower()
     if ext == "txt":
@@ -43,6 +59,9 @@ def read_file(file: UploadFile):
     else:
         raise HTTPException(400, "Unsupported file type")
 
+# ------------------------------
+# Endpoint: Ingest file
+# ------------------------------
 @router.post("/ingest")
 async def ingest(file: UploadFile = File(...), user_id: int = Depends(get_user_id)):
     text = read_file(file)
@@ -50,10 +69,10 @@ async def ingest(file: UploadFile = File(...), user_id: int = Depends(get_user_i
     embeddings = np.stack([get_embedding(c) for c in chunks])
 
     # Replace old embeddings for this user
-    add_embeddings(user_id, embeddings)  # <-- optional flag if your add_embeddings supports it
+    add_embeddings(user_id, embeddings)
 
-    # Overwrite old chunks instead of merging
-    chunks_path = os.path.join("app/faiss_index", f"{user_id}_chunks.pkl")
+    # Save chunks (overwrite old)
+    chunks_path = os.path.join(FAISS_DIR, f"{user_id}_chunks.pkl")
     with open(chunks_path, "wb") as f:
         pickle.dump(chunks, f)
 
