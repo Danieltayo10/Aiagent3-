@@ -50,7 +50,7 @@ def read_file(file: UploadFile):
 async def ingest(file: UploadFile = File(...), user_id: int = Depends(get_user_id)):
     try:
         # Ensure FAISS folder exists
-        os.makedirs("app/faiss_index", exist_ok=True)
+        os.makedirs("/tmp/faiss_index", exist_ok=True)
 
         text = read_file(file)
         chunks = [text[i:i+500] for i in range(0, len(text), 500)]
@@ -77,3 +77,4 @@ async def ingest(file: UploadFile = File(...), user_id: int = Depends(get_user_i
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Ingest failed: {e}")
+
