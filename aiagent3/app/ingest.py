@@ -15,7 +15,7 @@ JWT_SECRET = "supersecretkey123"
 ALGORITHM = "HS256"
 security = HTTPBearer()
 
-FAISS_DIR = "app/faiss_index"
+FAISS_DIR = os.path.join("/tmp", "faiss_index")
 os.makedirs(FAISS_DIR, exist_ok=True)
 
 def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> int:
