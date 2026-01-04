@@ -94,16 +94,16 @@ def upload_document(file):
                         file.type
                     )
                 },
-                headers=headers
+                headers=headers,
+                timeout=120  # timeout to prevent hanging
             )
 
-        # Show backend errors if status code != 200
         if res.status_code != 200:
             st.error(f"❌ Upload failed with status {res.status_code}")
             try:
-                st.error(f"Backend response: {res.json()}")
+                st.error(f"Backend response JSON:\n{res.json()}")
             except Exception:
-                st.error(f"Backend response (raw): {res.text}")
+                st.error(f"Backend response (raw text):\n{res.text}")
             return
 
         st.success("✅ Document uploaded successfully")
@@ -113,8 +113,10 @@ def upload_document(file):
         st.error("🔥 Upload exception (requests)")
         st.exception(e)
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
         st.error("🔥 Upload exception (general)")
-        st.exception(e)
+        st.text(f"{str(e)}\n{tb}")
 
 def ask_question(query: str, sms_number: str | None):
     headers = get_auth_headers()
@@ -131,15 +133,16 @@ def ask_question(query: str, sms_number: str | None):
             res = requests.post(
                 f"{API_BASE}/query",
                 json=payload,
-                headers=headers
+                headers=headers,
+                timeout=120
             )
 
         if res.status_code != 200:
             st.error(f"❌ Query failed with status {res.status_code}")
             try:
-                st.error(f"Backend response: {res.json()}")
+                st.error(f"Backend response JSON:\n{res.json()}")
             except Exception:
-                st.error(f"Backend response (raw): {res.text}")
+                st.error(f"Backend response (raw text):\n{res.text}")
             return
 
         st.subheader("AI Answer")
@@ -152,8 +155,10 @@ def ask_question(query: str, sms_number: str | None):
         st.error("🔥 Query exception (requests)")
         st.exception(e)
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
         st.error("🔥 Query exception (general)")
-        st.exception(e)
+        st.text(f"{str(e)}\n{tb}")
 
 # ------------------------------
 # Sidebar: Authentication
