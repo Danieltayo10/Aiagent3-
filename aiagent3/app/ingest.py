@@ -61,11 +61,14 @@ def process_file_background(user_id: int, text: str):
     with open(chunks_path, "wb") as f:
         pickle.dump(chunks, f)
 
+# ------------------------------
+# POST /ingest
+# ------------------------------
 @router.post("/ingest")
 async def ingest(
     file: UploadFile = File(...),
     user_id: int = Depends(get_user_id),
-    background_tasks: BackgroundTasks = None
+    background_tasks: BackgroundTasks  # removed =None
 ):
     # Read file synchronously (quick)
     text = read_file(file)
@@ -75,3 +78,14 @@ async def ingest(
 
     # Respond immediately
     return {"status": "accepted", "message": "File is being processed in background"}
+
+
+# ------------------------------
+# GET /ingest/status/{user_id}
+# ------------------------------
+@router.get("/ingest/status/{user_id}")
+def ingest_status(user_id: int):
+    chunks_path = os.path.join(FAISS_DIR, f"{user_id}_chunks.pkl")
+    if os.path.exists(chunks_path):
+        return {"status": "completed"}
+    return {"status": "processing"}
