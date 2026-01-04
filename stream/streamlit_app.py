@@ -89,6 +89,7 @@ def upload_document(file):
     st.write("📏 Size:", file.size)
 
     try:
+        # Send file to /ingest (background processing)
         with st.spinner("Uploading document..."):
             res = requests.post(
                 f"{API_BASE}/ingest",
@@ -100,7 +101,7 @@ def upload_document(file):
                     )
                 },
                 headers=headers,
-                timeout=120  # increased timeout for large files
+                timeout=30  # Keep small; backend returns immediately
             )
 
         if res.status_code != 200:
@@ -114,8 +115,23 @@ def upload_document(file):
                 st.error(f"Backend response (raw): {res.text}")
             return
 
-        st.success("✅ Document uploaded successfully")
-        st.write("Chunks processed:", res.json().get("chunks"))
+        st.success("✅ Document uploaded successfully! Processing in background.")
+
+        # -------------------------
+        # Polling backend for completion
+        # -------------------------
+        chunks_path_check = f"{API_BASE}/ingest/status/{st.session_state['logged_in_user']}"  # must match user_id
+        import time
+
+        with st.spinner("Waiting for processing to complete..."):
+            for i in range(30):  # poll up to 30 times (~30 sec)
+                status_res = requests.get(chunks_path_check, headers=headers, timeout=5)
+                if status_res.status_code == 200 and status_res.json().get("status") == "completed":
+                    st.success("✅ Processing completed!")
+                    break
+                time.sleep(1)
+            else:
+                st.info("⏳ Processing still ongoing. You can continue using the app.")
 
     except requests.exceptions.RequestException as e:
         st.error("🔥 Upload exception (requests)")
@@ -123,6 +139,7 @@ def upload_document(file):
     except Exception as e:
         st.error("🔥 Upload exception (general)")
         st.exception(e)
+
 
 
 def ask_question(query: str, sms_number: str | None):
@@ -212,3 +229,4 @@ else:
 
     if st.button("Ask AI"):
         ask_question(query, sms_number if sms_number else None)
+
