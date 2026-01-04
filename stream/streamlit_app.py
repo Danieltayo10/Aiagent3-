@@ -42,7 +42,12 @@ def register_user(username: str, password: str):
         st.session_state["logged_in_user"] = username
         st.success(f"Registered & logged in as {username}")
     else:
-        st.error(f"❌ Registration failed: {res.text}")
+        # show full backend response
+        st.error(f"❌ Registration failed: {res.status_code}")
+        try:
+            st.error(f"Backend response: {res.json()}")
+        except Exception:
+            st.error(f"Backend response (raw): {res.text}")
 
 def login_user(username: str, password: str):
     try:
@@ -60,7 +65,12 @@ def login_user(username: str, password: str):
         st.session_state["logged_in_user"] = username
         st.success(f"Logged in as {username}")
     else:
-        st.error(f"❌ Login failed: {res.text}")
+        # show full backend response
+        st.error(f"❌ Login failed: {res.status_code}")
+        try:
+            st.error(f"Backend response: {res.json()}")
+        except Exception:
+            st.error(f"Backend response (raw): {res.text}")
 
 def get_auth_headers():
     token = st.session_state.get("jwt_token")
@@ -94,16 +104,16 @@ def upload_document(file):
                         file.type
                     )
                 },
-                headers=headers,
-                timeout=120  # timeout to prevent hanging
+                headers=headers
             )
 
+        # Show backend errors if status code != 200
         if res.status_code != 200:
             st.error(f"❌ Upload failed with status {res.status_code}")
             try:
-                st.error(f"Backend response JSON:\n{res.json()}")
+                st.error(f"Backend response: {res.json()}")
             except Exception:
-                st.error(f"Backend response (raw text):\n{res.text}")
+                st.error(f"Backend response (raw): {res.text}")
             return
 
         st.success("✅ Document uploaded successfully")
@@ -113,10 +123,8 @@ def upload_document(file):
         st.error("🔥 Upload exception (requests)")
         st.exception(e)
     except Exception as e:
-        import traceback
-        tb = traceback.format_exc()
         st.error("🔥 Upload exception (general)")
-        st.text(f"{str(e)}\n{tb}")
+        st.exception(e)
 
 def ask_question(query: str, sms_number: str | None):
     headers = get_auth_headers()
@@ -133,16 +141,15 @@ def ask_question(query: str, sms_number: str | None):
             res = requests.post(
                 f"{API_BASE}/query",
                 json=payload,
-                headers=headers,
-                timeout=120
+                headers=headers
             )
 
         if res.status_code != 200:
             st.error(f"❌ Query failed with status {res.status_code}")
             try:
-                st.error(f"Backend response JSON:\n{res.json()}")
+                st.error(f"Backend response: {res.json()}")
             except Exception:
-                st.error(f"Backend response (raw text):\n{res.text}")
+                st.error(f"Backend response (raw): {res.text}")
             return
 
         st.subheader("AI Answer")
@@ -155,10 +162,8 @@ def ask_question(query: str, sms_number: str | None):
         st.error("🔥 Query exception (requests)")
         st.exception(e)
     except Exception as e:
-        import traceback
-        tb = traceback.format_exc()
         st.error("🔥 Query exception (general)")
-        st.text(f"{str(e)}\n{tb}")
+        st.exception(e)
 
 # ------------------------------
 # Sidebar: Authentication
