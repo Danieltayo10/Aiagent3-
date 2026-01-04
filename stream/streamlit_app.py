@@ -30,10 +30,10 @@ def register_user(username: str, password: str):
     try:
         res = requests.post(
             f"{API_BASE}/auth/register",
-            json={"username": username, "password": password},
-            timeout=15
+            json={"username": username, "password": password}
         )
     except Exception as e:
+        st.error("🔥 Registration exception")
         st.exception(e)
         return
 
@@ -42,16 +42,16 @@ def register_user(username: str, password: str):
         st.session_state["logged_in_user"] = username
         st.success(f"Registered & logged in as {username}")
     else:
-        st.error(res.text)
+        st.error(f"❌ Registration failed: {res.text}")
 
 def login_user(username: str, password: str):
     try:
         res = requests.post(
             f"{API_BASE}/auth/login",
-            json={"username": username, "password": password},
-            timeout=15
+            json={"username": username, "password": password}
         )
     except Exception as e:
+        st.error("🔥 Login exception")
         st.exception(e)
         return
 
@@ -60,7 +60,7 @@ def login_user(username: str, password: str):
         st.session_state["logged_in_user"] = username
         st.success(f"Logged in as {username}")
     else:
-        st.error(res.text)
+        st.error(f"❌ Login failed: {res.text}")
 
 def get_auth_headers():
     token = st.session_state.get("jwt_token")
@@ -90,28 +90,31 @@ def upload_document(file):
                 files={
                     "file": (
                         file.name,
-                        file.getvalue(),   # 🔥 IMPORTANT FIX
+                        file.getvalue(),
                         file.type
                     )
                 },
-                headers=headers,
-                timeout=30
+                headers=headers
             )
-    except requests.exceptions.Timeout:
-        st.error("⏱️ Upload timed out (backend not responding)")
-        return
-    except Exception as e:
-        st.error("🔥 Upload exception")
-        st.exception(e)
-        return
 
-    st.write("🔁 Status:", res.status_code)
-    st.write("🧾 Response:", res.text)
+        # Show backend errors if status code != 200
+        if res.status_code != 200:
+            st.error(f"❌ Upload failed with status {res.status_code}")
+            try:
+                st.error(f"Backend response: {res.json()}")
+            except Exception:
+                st.error(f"Backend response (raw): {res.text}")
+            return
 
-    if res.status_code == 200:
         st.success("✅ Document uploaded successfully")
-    else:
-        st.error("❌ Upload failed")
+        st.write("Chunks processed:", res.json().get("chunks"))
+
+    except requests.exceptions.RequestException as e:
+        st.error("🔥 Upload exception (requests)")
+        st.exception(e)
+    except Exception as e:
+        st.error("🔥 Upload exception (general)")
+        st.exception(e)
 
 def ask_question(query: str, sms_number: str | None):
     headers = get_auth_headers()
@@ -128,18 +131,29 @@ def ask_question(query: str, sms_number: str | None):
             res = requests.post(
                 f"{API_BASE}/query",
                 json=payload,
-                headers=headers,
-                timeout=30
+                headers=headers
             )
-    except Exception as e:
-        st.exception(e)
-        return
 
-    if res.status_code == 200:
+        if res.status_code != 200:
+            st.error(f"❌ Query failed with status {res.status_code}")
+            try:
+                st.error(f"Backend response: {res.json()}")
+            except Exception:
+                st.error(f"Backend response (raw): {res.text}")
+            return
+
         st.subheader("AI Answer")
         st.write(res.json()["answer"])
-    else:
-        st.error(res.text)
+
+        if sms_number:
+            st.success(f"📩 Answer summary sent via SMS to {sms_number}")
+
+    except requests.exceptions.RequestException as e:
+        st.error("🔥 Query exception (requests)")
+        st.exception(e)
+    except Exception as e:
+        st.error("🔥 Query exception (general)")
+        st.exception(e)
 
 # ------------------------------
 # Sidebar: Authentication
