@@ -9,7 +9,7 @@ st.set_page_config(page_title="Autonomous AI Agent", layout="wide")
 # ------------------------------
 # Base API URL
 # ------------------------------
-API_BASE = "https://aiagentfastapi.onrender.com/api"
+API_BASE = "https://aiagent3-1.onrender.com/api"
 
 # ------------------------------
 # Session State Initialization
@@ -229,4 +229,5 @@ else:
 
     if st.button("Ask AI"):
         ask_question(query, sms_number if sms_number else None)
+
 
