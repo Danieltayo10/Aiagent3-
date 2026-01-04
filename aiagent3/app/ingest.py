@@ -68,7 +68,7 @@ def process_file_background(user_id: int, text: str):
 async def ingest(
     file: UploadFile = File(...),
     user_id: int = Depends(get_user_id),
-    background_tasks: BackgroundTasks  # removed =None
+    background_tasks: BackgroundTasks = None
 ):
     # Read file synchronously (quick)
     text = read_file(file)
@@ -89,3 +89,4 @@ def ingest_status(user_id: int):
     if os.path.exists(chunks_path):
         return {"status": "completed"}
     return {"status": "processing"}
+
