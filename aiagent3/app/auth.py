@@ -5,6 +5,7 @@ from app.user import User
 from app.security import hash_password, verify_password, create_access_token
 from pydantic import BaseModel
 import traceback
+from typing import Union
 
 router = APIRouter()
 
@@ -22,7 +23,7 @@ class UserCreate(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    user_id : int
+    user_id : Union[int, str]
 
 @router.post("/register", response_model=Token)
 def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -50,6 +51,7 @@ def login(user: UserCreate, db: Session = Depends(get_db)):
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Login failed: {e}")
+
 
 
 
