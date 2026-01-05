@@ -90,12 +90,9 @@ with tabs[0]:
 
     if uploaded and st.button("Ingest Document"):
         try:
-            r = api_post(
-                f"{API_BASE}/ingest",
-                headers=auth_headers(),
-                files={"file": uploaded}
-            )
-            st.success("File accepted for processing")
+           files = {"file": (uploaded.name, uploaded, uploaded.type)}
+           r = api_post(f"{API_BASE}/ingest", headers=auth_headers(), files=files)
+           st.success("File accepted for processing")
         except Exception as e:
             st.error(str(e))
 
@@ -162,4 +159,5 @@ with tabs[2]:
                 st.error(r.text)
         except Exception as e:
             st.error(str(e))
+
 
