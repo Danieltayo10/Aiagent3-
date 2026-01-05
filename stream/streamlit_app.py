@@ -1,4 +1,3 @@
-# streamlit_app.py
 import streamlit as st
 import requests
 from dotenv import load_dotenv
@@ -8,186 +7,173 @@ load_dotenv()
 
 st.set_page_config(page_title="Autonomous AI Agent", layout="wide")
 
+# =====================================================
+# CONFIG
+# =====================================================
 API_BASE = "https://aiagent3-1.onrender.com/api"
 
-# ------------------------------
-# Session State Initialization
-# ------------------------------
+# =====================================================
+# SESSION STATE
+# =====================================================
 if "jwt_token" not in st.session_state:
-    st.session_state["jwt_token"] = None
-if "user_id" not in st.session_state:  # corrected key from "user_i"
-    st.session_state["user_id"] = None
+    st.session_state.jwt_token = None
 
-# ------------------------------
-# Auth Helpers
-# ------------------------------
-def register_user(username: str, password: str):
-    if len(password) > 72:
-        st.error("Password too long (max 72 characters)")
-        return
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
 
+# =====================================================
+# HELPERS
+# =====================================================
+def auth_headers():
+    if not st.session_state.jwt_token:
+        return None
+    return {
+        "Authorization": f"Bearer {st.session_state.jwt_token}"
+    }
+
+# =====================================================
+# AUTH
+# =====================================================
+def register_user(username, password):
     try:
         res = requests.post(
             f"{API_BASE}/auth/register",
             json={"username": username, "password": password},
-            timeout=100
+            timeout=30
         )
     except Exception as e:
-        st.error("🔥 Registration exception")
+        st.error("Registration request failed")
         st.exception(e)
         return
 
     if res.status_code == 200:
-        st.session_state["jwt_token"] = res.json()["access_token"]
-        st.session_state["user_id"] = res.json().get("user_id")
-        st.success(f"Registered & logged in as {username}")
+        data = res.json()
+        st.session_state.jwt_token = data["access_token"]
+        st.session_state.user_id = data["user_id"]
+        st.success("Registered and logged in")
     else:
-        st.error(f"❌ Registration failed: {res.text}")
+        st.error(res.text)
 
 
-def login_user(username: str, password: str):
+def login_user(username, password):
     try:
         res = requests.post(
             f"{API_BASE}/auth/login",
             json={"username": username, "password": password},
-            timeout=70
+            timeout=30
         )
     except Exception as e:
-        st.error("🔥 Login exception")
+        st.error("Login request failed")
         st.exception(e)
         return
 
     if res.status_code == 200:
-        st.session_state["jwt_token"] = res.json()["access_token"]
-        st.session_state["user_id"] = res.json()["user_id"]
-        st.success(f"Logged in as {username}")
+        data = res.json()
+        st.session_state.jwt_token = data["access_token"]
+        st.session_state.user_id = data["user_id"]
+        st.success("Logged in successfully")
     else:
-        st.error(f"❌ Login failed: {res.text}")
+        st.error(res.text)
 
-
-def get_auth_headers():
-    token = st.session_state.get("jwt_token")
-    if not token:
-        return None
-    return {"Authorization": f"Bearer {token}"}
-
-
-# ------------------------------
-# File Upload
-# ------------------------------
+# =====================================================
+# INGEST
+# =====================================================
 def upload_document(file):
-    st.info("🚀 Upload started")
-
-    headers = get_auth_headers()
+    headers = auth_headers()
     if not headers:
-        st.error("❌ Not authenticated")
+        st.error("Not authenticated")
         return
 
-    st.write("📄 File:", file.name)
-    st.write("📦 Type:", file.type)
-    st.write("📏 Size:", file.size)
-
-    try:
-        # Send file to /ingest (background processing)
-        with st.spinner("Uploading document..."):
+    with st.spinner("Uploading file..."):
+        try:
             res = requests.post(
                 f"{API_BASE}/ingest",
-                files={"file": (file.name, file.getvalue(), file.type)},
                 headers=headers,
-                timeout=100  # backend returns immediately
+                files={
+                    "file": (file.name, file.getvalue(), file.type)
+                },
+                timeout=60
             )
-
-        if res.status_code != 200:
-            st.error(f"❌ Upload failed with status {res.status_code}")
-            try:
-                error_json = res.json()
-                st.error(f"Backend response: {error_json}")
-                if "detail" in error_json:
-                    st.error(f"Detail: {error_json['detail']}")
-            except Exception:
-                st.error(f"Backend response (raw): {res.text}")
+        except Exception as e:
+            st.error("Upload failed")
+            st.exception(e)
             return
 
-        st.success("✅ Document uploaded successfully! Processing in background.")
+    if res.status_code != 200:
+        st.error(res.text)
+        return
 
-        # Poll for completion
-        status_url = f"{API_BASE}/ingest/status/{st.session_state['user_id']}"
-        with st.spinner("Waiting for processing to complete..."):
-            for i in range(30):
-                status_res = requests.get(status_url, headers=headers, timeout=30)
-                if status_res.status_code == 200 and status_res.json().get("status") == "completed":
-                    st.success("✅ Processing completed!")
-                    break
-                time.sleep(1)
-            else:
-                st.info("⏳ Processing still ongoing. You can continue using the app.")
+    st.success("Upload accepted. Processing in background.")
 
-    except requests.exceptions.RequestException as e:
-        st.error("🔥 Upload exception (requests)")
-        st.exception(e)
-    except Exception as e:
-        st.error("🔥 Upload exception (general)")
-        st.exception(e)
+    # -----------------------------
+    # POLLING STATUS
+    # -----------------------------
+    status_url = f"{API_BASE}/ingest/status/{st.session_state.user_id}"
 
+    with st.spinner("Processing document..."):
+        for _ in range(30):
+            try:
+                status_res = requests.get(status_url, headers=headers, timeout=10)
+                if status_res.status_code == 200:
+                    status = status_res.json().get("status")
+                    if status == "completed":
+                        st.success("Document processing completed")
+                        return
+            except Exception:
+                pass
 
-# ------------------------------
-# Ask AI
-# ------------------------------
-def ask_question(query: str, sms_number: str | None):
-    headers = get_auth_headers()
+            time.sleep(1)
+
+    st.info("Still processing. You can continue using the app.")
+
+# =====================================================
+# QUERY
+# =====================================================
+def ask_question(query, sms_number=None):
+    headers = auth_headers()
     if not headers:
-        st.error("❌ Not authenticated")
+        st.error("Not authenticated")
         return
 
     payload = {"query": query}
     if sms_number:
         payload["send_sms_to"] = sms_number
 
-    try:
-        with st.spinner("Thinking..."):
+    with st.spinner("Thinking..."):
+        try:
             res = requests.post(
                 f"{API_BASE}/query",
-                json=payload,
                 headers=headers,
+                json=payload,
                 timeout=120
             )
-
-        if res.status_code != 200:
-            st.error(f"❌ Query failed with status {res.status_code}")
-            try:
-                error_json = res.json()
-                st.error(f"Backend response: {error_json}")
-                if "detail" in error_json:
-                    st.error(f"Detail: {error_json['detail']}")
-            except Exception:
-                st.error(f"Backend response (raw): {res.text}")
+        except Exception as e:
+            st.error("Query failed")
+            st.exception(e)
             return
 
-        st.subheader("AI Answer")
-        st.write(res.json()["answer"])
+    if res.status_code != 200:
+        st.error(res.text)
+        return
 
-        if sms_number:
-            st.success(f"📩 Answer summary sent via SMS to {sms_number}")
+    answer = res.json().get("answer", "")
+    st.subheader("Answer")
+    st.write(answer)
 
-    except requests.exceptions.RequestException as e:
-        st.error("🔥 Query exception (requests)")
-        st.exception(e)
-    except Exception as e:
-        st.error("🔥 Query exception (general)")
-        st.exception(e)
+    if sms_number:
+        st.success("SMS summary sent")
 
+# =====================================================
+# SIDEBAR
+# =====================================================
+st.sidebar.title("Authentication")
 
-# ------------------------------
-# Sidebar Authentication
-# ------------------------------
-st.sidebar.title("User Authentication")
-
-if st.session_state.get("user_id"):
-    st.sidebar.success(f"Logged in as {st.session_state['user_id']}")
+if st.session_state.user_id:
+    st.sidebar.success(f"User ID: {st.session_state.user_id}")
     if st.sidebar.button("Logout"):
-        st.session_state["jwt_token"] = None
-        st.session_state["user_id"] = None
-
+        st.session_state.jwt_token = None
+        st.session_state.user_id = None
+        st.rerun()
 else:
     mode = st.sidebar.selectbox("Mode", ["Login", "Register"])
     username = st.sidebar.text_input("Username")
@@ -199,23 +185,24 @@ else:
         else:
             login_user(username, password)
 
+# =====================================================
+# MAIN UI
+# =====================================================
+st.title("Autonomous AI Agent (FAISS + SMS)")
 
-# ------------------------------
-# Main UI
-# ------------------------------
-st.title("Autonomous AI Agent (SMS Enabled)")
+if not st.session_state.user_id:
+    st.info("Please log in to continue")
+    st.stop()
 
-if not st.session_state.get("user_id"):
-    st.info("Please log in to upload documents or ask questions.")
-else:
-    st.subheader("Upload Documents")
-    file = st.file_uploader("PDF, TXT, DOCX", type=["pdf", "txt", "docx"])
-    if file:
-        if st.button("Upload"):
-            upload_document(file)
+st.subheader("Upload Document")
+file = st.file_uploader("Upload PDF, TXT, DOCX", type=["pdf", "txt", "docx"])
 
-    st.subheader("Ask a Question")
-    query = st.text_input("Your question")
-    sms_number = st.text_input("Send summary via SMS (optional)")
-    if st.button("Ask AI"):
-        ask_question(query, sms_number if sms_number else None)
+if file and st.button("Upload"):
+    upload_document(file)
+
+st.subheader("Ask a Question")
+query = st.text_input("Your question")
+sms_number = st.text_input("Send summary via SMS (optional)")
+
+if st.button("Ask AI") and query:
+    ask_question(query, sms_number if sms_number else None)
