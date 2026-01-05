@@ -1,14 +1,13 @@
+# streamlit_app.py
 import streamlit as st
 import requests
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 
 st.set_page_config(page_title="Autonomous AI Agent", layout="wide")
 
-# ------------------------------
-# Base API URL
-# ------------------------------
 API_BASE = "https://aiagent3-1.onrender.com/api"
 
 # ------------------------------
@@ -16,11 +15,11 @@ API_BASE = "https://aiagent3-1.onrender.com/api"
 # ------------------------------
 if "jwt_token" not in st.session_state:
     st.session_state["jwt_token"] = None
-if "user_id" not in st.session_state:
+if "user_id" not in st.session_state:  # corrected key from "user_i"
     st.session_state["user_id"] = None
 
 # ------------------------------
-# Authentication Functions
+# Auth Helpers
 # ------------------------------
 def register_user(username: str, password: str):
     if len(password) > 72:
@@ -74,7 +73,7 @@ def get_auth_headers():
 
 
 # ------------------------------
-# Protected Actions
+# File Upload
 # ------------------------------
 def upload_document(file):
     st.info("🚀 Upload started")
@@ -93,15 +92,9 @@ def upload_document(file):
         with st.spinner("Uploading document..."):
             res = requests.post(
                 f"{API_BASE}/ingest",
-                files={
-                    "file": (
-                        file.name,
-                        file.getvalue(),
-                        file.type
-                    )
-                },
+                files={"file": (file.name, file.getvalue(), file.type)},
                 headers=headers,
-                timeout=100  # Keep small; backend returns immediately
+                timeout=100  # backend returns immediately
             )
 
         if res.status_code != 200:
@@ -117,16 +110,11 @@ def upload_document(file):
 
         st.success("✅ Document uploaded successfully! Processing in background.")
 
-        # -------------------------
-        # Polling backend for completion
-        # -------------------------
-        chunks_path_check = f"{API_BASE}/ingest/status/{st.session_state['user_id']}"  # must match user_id
-        import time
-
+        # Poll for completion
+        status_url = f"{API_BASE}/ingest/status/{st.session_state['user_id']}"
         with st.spinner("Waiting for processing to complete..."):
-            for i in range(30):  
-                status_res = requests.get(chunks_path_check, headers=headers, timeout=100)
-                st.write(f"Attempt {i+1}: {status_res.status_code} {status_res.text}")
+            for i in range(30):
+                status_res = requests.get(status_url, headers=headers, timeout=30)
                 if status_res.status_code == 200 and status_res.json().get("status") == "completed":
                     st.success("✅ Processing completed!")
                     break
@@ -142,7 +130,9 @@ def upload_document(file):
         st.exception(e)
 
 
-
+# ------------------------------
+# Ask AI
+# ------------------------------
 def ask_question(query: str, sms_number: str | None):
     headers = get_auth_headers()
     if not headers:
@@ -159,7 +149,7 @@ def ask_question(query: str, sms_number: str | None):
                 f"{API_BASE}/query",
                 json=payload,
                 headers=headers,
-                timeout=120  # increased timeout
+                timeout=120
             )
 
         if res.status_code != 200:
@@ -188,7 +178,7 @@ def ask_question(query: str, sms_number: str | None):
 
 
 # ------------------------------
-# Sidebar: Authentication
+# Sidebar Authentication
 # ------------------------------
 st.sidebar.title("User Authentication")
 
@@ -220,7 +210,6 @@ if not st.session_state.get("user_id"):
 else:
     st.subheader("Upload Documents")
     file = st.file_uploader("PDF, TXT, DOCX", type=["pdf", "txt", "docx"])
-
     if file:
         if st.button("Upload"):
             upload_document(file)
@@ -228,15 +217,5 @@ else:
     st.subheader("Ask a Question")
     query = st.text_input("Your question")
     sms_number = st.text_input("Send summary via SMS (optional)")
-
     if st.button("Ask AI"):
         ask_question(query, sms_number if sms_number else None)
-
-
-
-
-
-
-
-
-
