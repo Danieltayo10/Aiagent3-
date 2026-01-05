@@ -95,6 +95,7 @@ async def query_agent(request: QueryRequest, background_tasks: BackgroundTasks, 
         return {"answer": "Failed to load document chunks."}
 
     retrieved_texts = [chunks[i] for i in I[0] if i < len(chunks)]
+    retrieved_texts = retrieved_texts[:5]
 
     prompt = (
         "You are an assistant. Use the following context to answer the question:\n\n"
@@ -119,3 +120,4 @@ async def query_agent(request: QueryRequest, background_tasks: BackgroundTasks, 
         background_tasks.add_task(send_sms_background, request.send_sms_to, summary)
 
     return {"answer": answer}
+
