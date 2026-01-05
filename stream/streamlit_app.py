@@ -126,6 +126,7 @@ def upload_document(file):
         with st.spinner("Waiting for processing to complete..."):
             for i in range(30):  # poll up to 30 times (~30 sec)
                 status_res = requests.get(chunks_path_check, headers=headers, timeout=5)
+                st.write(f"Attempt {i+1}: {status_res.status_code} {status_res.text}")
                 if status_res.status_code == 200 and status_res.json().get("status") == "completed":
                     st.success("✅ Processing completed!")
                     break
@@ -194,8 +195,9 @@ st.sidebar.title("User Authentication")
 if st.session_state.get("user_id"):
     st.sidebar.success(f"Logged in as {st.session_state['user_id']}")
     if st.sidebar.button("Logout"):
-        st.session_state.clear()
-        st.rerun()
+        st.session_state["jwt_token"] = None
+        st.session_state["user_id"] = None
+
 else:
     mode = st.sidebar.selectbox("Mode", ["Login", "Register"])
     username = st.sidebar.text_input("Username")
@@ -229,6 +231,7 @@ else:
 
     if st.button("Ask AI"):
         ask_question(query, sms_number if sms_number else None)
+
 
 
 
