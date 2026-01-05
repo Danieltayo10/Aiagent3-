@@ -113,8 +113,9 @@ async def ingest(
 # GET /ingest/status/{user_id}
 # -----------------------------
 @router.get("/ingest/status/{user_id}")
-def ingest_status(user_id: int):
+def ingest_status(user_id: str):
     chunks_path = os.path.join(FAISS_DIR, f"{user_id}_chunks.pkl")
     if os.path.exists(chunks_path):
         return {"status": "completed"}
     return {"status": "processing"}
+
