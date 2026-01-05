@@ -16,8 +16,8 @@ API_BASE = "https://aiagent3-1.onrender.com/api"
 # ------------------------------
 if "jwt_token" not in st.session_state:
     st.session_state["jwt_token"] = None
-if "logged_in_user" not in st.session_state:
-    st.session_state["logged_in_user"] = None
+if "user_id" not in st.session_state:
+    st.session_state["user_id"] = None
 
 # ------------------------------
 # Authentication Functions
@@ -229,6 +229,7 @@ else:
 
     if st.button("Ask AI"):
         ask_question(query, sms_number if sms_number else None)
+
 
 
 
