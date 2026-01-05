@@ -5,7 +5,7 @@ import time
 # ---------------------------------
 # CONFIG
 # ---------------------------------
-API_BASE = "https://YOUR-BACKEND.onrender.com/api"  # CHANGE THIS
+API_BASE = "https://aiagent3-1.onrender.com/api"  # CHANGE THIS
 
 st.set_page_config(
     page_title="Autonomous AI Agent",
@@ -162,3 +162,4 @@ with tabs[2]:
                 st.error(r.text)
         except Exception as e:
             st.error(str(e))
+
