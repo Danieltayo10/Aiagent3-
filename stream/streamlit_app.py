@@ -124,8 +124,8 @@ def upload_document(file):
         import time
 
         with st.spinner("Waiting for processing to complete..."):
-            for i in range(30):  # poll up to 30 times (~30 sec)
-                status_res = requests.get(chunks_path_check, headers=headers, timeout=5)
+            for i in range(30):  
+                status_res = requests.get(chunks_path_check, headers=headers, timeout=100)
                 st.write(f"Attempt {i+1}: {status_res.status_code} {status_res.text}")
                 if status_res.status_code == 200 and status_res.json().get("status") == "completed":
                     st.success("✅ Processing completed!")
@@ -231,6 +231,7 @@ else:
 
     if st.button("Ask AI"):
         ask_question(query, sms_number if sms_number else None)
+
 
 
 
