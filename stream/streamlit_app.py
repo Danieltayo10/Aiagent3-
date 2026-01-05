@@ -60,7 +60,7 @@ def login_user(username: str, password: str):
 
     if res.status_code == 200:
         st.session_state["jwt_token"] = res.json()["access_token"]
-        st.session_state["user_id"] = username
+        st.session_state["user_id"] = res.json()["user_id"]
         st.success(f"Logged in as {username}")
     else:
         st.error(f"❌ Login failed: {res.text}")
@@ -231,6 +231,7 @@ else:
 
     if st.button("Ask AI"):
         ask_question(query, sms_number if sms_number else None)
+
 
 
 
