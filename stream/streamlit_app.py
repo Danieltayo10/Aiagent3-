@@ -1,208 +1,164 @@
 import streamlit as st
 import requests
-from dotenv import load_dotenv
 import time
 
-load_dotenv()
-
-st.set_page_config(page_title="Autonomous AI Agent", layout="wide")
-
-# =====================================================
+# ---------------------------------
 # CONFIG
-# =====================================================
-API_BASE = "https://aiagent3-1.onrender.com/api"
+# ---------------------------------
+API_BASE = "https://YOUR-BACKEND.onrender.com/api"  # CHANGE THIS
 
-# =====================================================
+st.set_page_config(
+    page_title="Autonomous AI Agent",
+    layout="wide"
+)
+
+# ---------------------------------
 # SESSION STATE
-# =====================================================
-if "jwt_token" not in st.session_state:
-    st.session_state.jwt_token = None
-
+# ---------------------------------
+if "token" not in st.session_state:
+    st.session_state.token = None
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 
-# =====================================================
+# ---------------------------------
 # HELPERS
-# =====================================================
+# ---------------------------------
 def auth_headers():
-    if not st.session_state.jwt_token:
-        return None
-    return {
-        "Authorization": f"Bearer {st.session_state.jwt_token}"
-    }
+    return {"Authorization": f"Bearer {st.session_state.token}"}
 
-# =====================================================
-# AUTH
-# =====================================================
-def register_user(username, password):
-    try:
-        res = requests.post(
-            f"{API_BASE}/auth/register",
-            json={"username": username, "password": password},
-            timeout=30
-        )
-    except Exception as e:
-        st.error("Registration request failed")
-        st.exception(e)
-        return
+def api_post(url, **kwargs):
+    return requests.post(url, timeout=60, **kwargs)
 
-    if res.status_code == 200:
-        data = res.json()
-        st.session_state.jwt_token = data["access_token"]
-        st.session_state.user_id = data["user_id"]
-        st.success("Registered and logged in")
-    else:
-        st.error(res.text)
+def api_get(url, **kwargs):
+    return requests.get(url, timeout=60, **kwargs)
 
+# ---------------------------------
+# SIDEBAR – AUTH
+# ---------------------------------
+st.sidebar.title("🔐 Authentication")
 
-def login_user(username, password):
-    try:
-        res = requests.post(
-            f"{API_BASE}/auth/login",
-            json={"username": username, "password": password},
-            timeout=30
-        )
-    except Exception as e:
-        st.error("Login request failed")
-        st.exception(e)
-        return
-
-    if res.status_code == 200:
-        data = res.json()
-        st.session_state.jwt_token = data["access_token"]
-        st.session_state.user_id = data["user_id"]
-        st.success("Logged in successfully")
-    else:
-        st.error(res.text)
-
-# =====================================================
-# INGEST
-# =====================================================
-def upload_document(file):
-    headers = auth_headers()
-    if not headers:
-        st.error("Not authenticated")
-        return
-
-    with st.spinner("Uploading file..."):
-        try:
-            res = requests.post(
-                f"{API_BASE}/ingest",
-                headers=headers,
-                files={
-                    "file": (file.name, file.getvalue(), file.type)
-                },
-                timeout=60
-            )
-        except Exception as e:
-            st.error("Upload failed")
-            st.exception(e)
-            return
-
-    if res.status_code != 200:
-        st.error(res.text)
-        return
-
-    st.success("Upload accepted. Processing in background.")
-
-    # -----------------------------
-    # POLLING STATUS
-    # -----------------------------
-    status_url = f"{API_BASE}/ingest/status/{st.session_state.user_id}"
-
-    with st.spinner("Processing document..."):
-        for _ in range(30):
-            try:
-                status_res = requests.get(status_url, headers=headers, timeout=10)
-                if status_res.status_code == 200:
-                    status = status_res.json().get("status")
-                    if status == "completed":
-                        st.success("Document processing completed")
-                        return
-            except Exception:
-                pass
-
-            time.sleep(1)
-
-    st.info("Still processing. You can continue using the app.")
-
-# =====================================================
-# QUERY
-# =====================================================
-def ask_question(query, sms_number=None):
-    headers = auth_headers()
-    if not headers:
-        st.error("Not authenticated")
-        return
-
-    payload = {"query": query}
-    if sms_number:
-        payload["send_sms_to"] = sms_number
-
-    with st.spinner("Thinking..."):
-        try:
-            res = requests.post(
-                f"{API_BASE}/query",
-                headers=headers,
-                json=payload,
-                timeout=120
-            )
-        except Exception as e:
-            st.error("Query failed")
-            st.exception(e)
-            return
-
-    if res.status_code != 200:
-        st.error(res.text)
-        return
-
-    answer = res.json().get("answer", "")
-    st.subheader("Answer")
-    st.write(answer)
-
-    if sms_number:
-        st.success("SMS summary sent")
-
-# =====================================================
-# SIDEBAR
-# =====================================================
-st.sidebar.title("Authentication")
-
-if st.session_state.user_id:
-    st.sidebar.success(f"User ID: {st.session_state.user_id}")
-    if st.sidebar.button("Logout"):
-        st.session_state.jwt_token = None
-        st.session_state.user_id = None
-        st.rerun()
-else:
-    mode = st.sidebar.selectbox("Mode", ["Login", "Register"])
+if not st.session_state.token:
+    mode = st.sidebar.radio("Mode", ["Login", "Register"])
     username = st.sidebar.text_input("Username")
     password = st.sidebar.text_input("Password", type="password")
 
     if st.sidebar.button(mode):
-        if mode == "Register":
-            register_user(username, password)
-        else:
-            login_user(username, password)
+        endpoint = "/auth/login" if mode == "Login" else "/auth/register"
+        try:
+            r = api_post(
+                f"{API_BASE}{endpoint}",
+                json={"username": username, "password": password}
+            )
+            if r.ok:
+                data = r.json()
+                st.session_state.token = data["access_token"]
+                st.session_state.user_id = data["user_id"]
+                st.sidebar.success("Authenticated")
+                st.rerun()
+            else:
+                st.sidebar.error(r.text)
+        except Exception as e:
+            st.sidebar.error(str(e))
+else:
+    st.sidebar.success(f"Logged in as user {st.session_state.user_id}")
+    if st.sidebar.button("Logout"):
+        st.session_state.token = None
+        st.session_state.user_id = None
+        st.rerun()
 
-# =====================================================
+# ---------------------------------
 # MAIN UI
-# =====================================================
-st.title("Autonomous AI Agent (FAISS + SMS)")
+# ---------------------------------
+st.title("🤖 Autonomous Multi-Client AI Agent")
 
-if not st.session_state.user_id:
-    st.info("Please log in to continue")
+if not st.session_state.token:
+    st.warning("Please login to continue.")
     st.stop()
 
-st.subheader("Upload Document")
-file = st.file_uploader("Upload PDF, TXT, DOCX", type=["pdf", "txt", "docx"])
+tabs = st.tabs(["📄 Ingest", "🔎 Query", "📲 SMS Automation"])
 
-if file and st.button("Upload"):
-    upload_document(file)
+# =================================
+# INGEST TAB
+# =================================
+with tabs[0]:
+    st.header("📄 Document Ingestion")
 
-st.subheader("Ask a Question")
-query = st.text_input("Your question")
-sms_number = st.text_input("Send summary via SMS (optional)")
+    uploaded = st.file_uploader(
+        "Upload a document",
+        type=["txt", "pdf", "docx"]
+    )
 
-if st.button("Ask AI") and query:
-    ask_question(query, sms_number if sms_number else None)
+    if uploaded and st.button("Ingest Document"):
+        try:
+            r = api_post(
+                f"{API_BASE}/ingest",
+                headers=auth_headers(),
+                files={"file": uploaded}
+            )
+            st.success("File accepted for processing")
+        except Exception as e:
+            st.error(str(e))
+
+    if st.button("Check Ingest Status"):
+        try:
+            r = api_get(
+                f"{API_BASE}/ingest/status/{st.session_state.user_id}"
+            )
+            st.info(r.json()["status"])
+        except Exception as e:
+            st.error(str(e))
+
+# =================================
+# QUERY TAB
+# =================================
+with tabs[1]:
+    st.header("🔎 Query Your Documents")
+
+    query = st.text_area("Ask a question")
+    sms_to = st.text_input("Optional: Send answer via SMS (E.164)")
+
+    if st.button("Run Query"):
+        payload = {"query": query}
+        if sms_to:
+            payload["send_sms_to"] = sms_to
+
+        try:
+            r = api_post(
+                f"{API_BASE}/query",
+                headers=auth_headers(),
+                json=payload
+            )
+            if r.ok:
+                st.success("Answer")
+                st.write(r.json()["answer"])
+            else:
+                st.error(r.text)
+        except Exception as e:
+            st.error(str(e))
+
+# =================================
+# AUTOMATION / SMS TAB
+# =================================
+with tabs[2]:
+    st.header("📲 Send SMS (Automation)")
+
+    msg = st.text_area("Message")
+    to_number = st.text_input("Recipient Number (E.164)")
+
+    if st.button("Send SMS"):
+        try:
+            r = api_post(
+                f"{API_BASE}/send_sms",
+                headers=auth_headers(),
+                params={
+                    "msg": msg,
+                    "to_number": to_number
+                }
+            )
+            if r.ok:
+                st.success("SMS Sent")
+                st.json(r.json())
+            else:
+                st.error(r.text)
+        except Exception as e:
+            st.error(str(e))
