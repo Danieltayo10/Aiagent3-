@@ -10,6 +10,7 @@ import pickle, os
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt
 import time
+from typing import Union
 
 router = APIRouter()
 JWT_SECRET = "supersecretkey123"
@@ -113,9 +114,10 @@ async def ingest(
 # GET /ingest/status/{user_id}
 # -----------------------------
 @router.get("/ingest/status/{user_id}")
-def ingest_status(user_id: str):
+def ingest_status(user_id: Union[int,str]):
     chunks_path = os.path.join(FAISS_DIR, f"{user_id}_chunks.pkl")
     if os.path.exists(chunks_path):
         return {"status": "completed"}
     return {"status": "processing"}
+
 
