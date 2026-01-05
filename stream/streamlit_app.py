@@ -31,7 +31,7 @@ def register_user(username: str, password: str):
         res = requests.post(
             f"{API_BASE}/auth/register",
             json={"username": username, "password": password},
-            timeout=30
+            timeout=100
         )
     except Exception as e:
         st.error("🔥 Registration exception")
@@ -40,7 +40,7 @@ def register_user(username: str, password: str):
 
     if res.status_code == 200:
         st.session_state["jwt_token"] = res.json()["access_token"]
-        st.session_state["logged_in_user"] = username
+        st.session_state["user_id"] = username
         st.success(f"Registered & logged in as {username}")
     else:
         st.error(f"❌ Registration failed: {res.text}")
@@ -51,7 +51,7 @@ def login_user(username: str, password: str):
         res = requests.post(
             f"{API_BASE}/auth/login",
             json={"username": username, "password": password},
-            timeout=30
+            timeout=70
         )
     except Exception as e:
         st.error("🔥 Login exception")
@@ -60,7 +60,7 @@ def login_user(username: str, password: str):
 
     if res.status_code == 200:
         st.session_state["jwt_token"] = res.json()["access_token"]
-        st.session_state["logged_in_user"] = username
+        st.session_state["user_id"] = username
         st.success(f"Logged in as {username}")
     else:
         st.error(f"❌ Login failed: {res.text}")
@@ -101,7 +101,7 @@ def upload_document(file):
                     )
                 },
                 headers=headers,
-                timeout=30  # Keep small; backend returns immediately
+                timeout=100  # Keep small; backend returns immediately
             )
 
         if res.status_code != 200:
@@ -120,7 +120,7 @@ def upload_document(file):
         # -------------------------
         # Polling backend for completion
         # -------------------------
-        chunks_path_check = f"{API_BASE}/ingest/status/{st.session_state['logged_in_user']}"  # must match user_id
+        chunks_path_check = f"{API_BASE}/ingest/status/{st.session_state['user_id']}"  # must match user_id
         import time
 
         with st.spinner("Waiting for processing to complete..."):
@@ -158,7 +158,7 @@ def ask_question(query: str, sms_number: str | None):
                 f"{API_BASE}/query",
                 json=payload,
                 headers=headers,
-                timeout=60  # increased timeout
+                timeout=120  # increased timeout
             )
 
         if res.status_code != 200:
@@ -191,8 +191,8 @@ def ask_question(query: str, sms_number: str | None):
 # ------------------------------
 st.sidebar.title("User Authentication")
 
-if st.session_state.get("logged_in_user"):
-    st.sidebar.success(f"Logged in as {st.session_state['logged_in_user']}")
+if st.session_state.get("user_id"):
+    st.sidebar.success(f"Logged in as {st.session_state['user_id']}")
     if st.sidebar.button("Logout"):
         st.session_state.clear()
         st.rerun()
@@ -213,7 +213,7 @@ else:
 # ------------------------------
 st.title("Autonomous AI Agent (SMS Enabled)")
 
-if not st.session_state.get("logged_in_user"):
+if not st.session_state.get("user_id"):
     st.info("Please log in to upload documents or ask questions.")
 else:
     st.subheader("Upload Documents")
@@ -229,5 +229,6 @@ else:
 
     if st.button("Ask AI"):
         ask_question(query, sms_number if sms_number else None)
+
 
 
