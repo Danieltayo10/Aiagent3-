@@ -33,7 +33,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(db_user)
         token = create_access_token({"user_id": db_user.id})
-        return {"access_token": token, "user_id": db_user.id}
+        return {"access_token": token, "user_id": db_user.id,"token_type": "bearer"}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Registration failed: {e}")
@@ -45,8 +45,9 @@ def login(user: UserCreate, db: Session = Depends(get_db)):
         if not db_user or not verify_password(user.password, db_user.hashed_password):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         token = create_access_token({"user_id": db_user.id})
-        return {"access_token": token,"user_id": db_user.id}
+        return {"access_token": token,"user_id": db_user.id,"token_type": "bearer"}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Login failed: {e}")
+
 
