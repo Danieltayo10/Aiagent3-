@@ -40,7 +40,7 @@ def register_user(username: str, password: str):
 
     if res.status_code == 200:
         st.session_state["jwt_token"] = res.json()["access_token"]
-        st.session_state["user_id"] = username
+        st.session_state["user_id"] = res.json().get("user_id")
         st.success(f"Registered & logged in as {username}")
     else:
         st.error(f"❌ Registration failed: {res.text}")
@@ -231,6 +231,7 @@ else:
 
     if st.button("Ask AI"):
         ask_question(query, sms_number if sms_number else None)
+
 
 
 
