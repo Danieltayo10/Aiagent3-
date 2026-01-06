@@ -81,7 +81,7 @@ def upload_document(file):
             status_box.success("✅ Processing completed!")
             return
         status_box.info("⏳ Processing...")
-        time.sleep(2)
+        
 
     status_box.warning("⚠️ Processing is still running in background.")
 
@@ -154,6 +154,7 @@ sms_number = st.text_input(
 
 if st.button("Ask AI"):
     ask_question(query, sms_number if sms_number else None)
+
 
 
 
