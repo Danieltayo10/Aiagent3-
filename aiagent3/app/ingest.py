@@ -1,5 +1,5 @@
 from fastapi import APIRouter, File, UploadFile, Depends, HTTPException, BackgroundTasks
-from app.index import add_embeddings, get_index, save_index
+from app.index import add_embeddings, save_index
 from app.embedder import get_embedding
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt
@@ -12,16 +12,21 @@ import logging
 router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 
+# -----------------------------
+# JWT config
+# -----------------------------
 JWT_SECRET = "supersecretkey123"
 ALGORITHM = "HS256"
 security = HTTPBearer()
 
-# Use /tmp for ephemeral storage on Render
+# -----------------------------
+# Ephemeral storage (Render)
+# -----------------------------
 FAISS_DIR = os.path.join("/tmp", "faiss_index")
 os.makedirs(FAISS_DIR, exist_ok=True)
 
 # -----------------------------
-# JWT decode helper
+# Helper: decode JWT & get user ID
 # -----------------------------
 def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> int:
     token = credentials.credentials
@@ -39,7 +44,7 @@ def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -
         raise HTTPException(status_code=401, detail="Invalid token")
 
 # -----------------------------
-# File reading
+# Helper: read uploaded file
 # -----------------------------
 def read_file(file: UploadFile):
     ext = file.filename.split(".")[-1].lower()
@@ -52,7 +57,7 @@ def read_file(file: UploadFile):
         doc = Document(file.file)
         return "\n".join([p.text for p in doc.paragraphs])
     else:
-        raise HTTPException(400, "Unsupported file type")
+        raise HTTPException(status_code=400, detail="Unsupported file type")
 
 # -----------------------------
 # Background processing
@@ -65,20 +70,23 @@ def process_file_background(user_id: int, text: str):
     chunks = [text[i:i+500] for i in range(0, len(text), 500)]
     logging.info(f"[INFO] Total chunks to embed: {len(chunks)}")
 
+    # Generate embeddings
     try:
         embeddings = np.stack([get_embedding(c) for c in chunks])
-        logging.info(f"[INFO] Embeddings generated successfully for user {user_id}")
+        logging.info(f"[INFO] Embeddings generated for user {user_id}")
     except Exception as e:
         logging.error(f"[ERROR] Embedding generation failed for user {user_id}: {e}")
         return
 
+    # Update FAISS index
     try:
         add_embeddings(user_id, embeddings)
-        logging.info(f"[INFO] FAISS index updated for user {user_id}")
+        save_index(user_id)  # ensure it's saved
+        logging.info(f"[INFO] FAISS index updated and saved for user {user_id}")
     except Exception as e:
         logging.error(f"[ERROR] FAISS update failed for user {user_id}: {e}")
 
-    # Save chunks for retrieval
+    # Save chunks
     chunks_path = os.path.join(FAISS_DIR, f"{user_id}_chunks.pkl")
     try:
         with open(chunks_path, "wb") as f:
