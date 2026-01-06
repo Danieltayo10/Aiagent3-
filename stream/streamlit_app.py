@@ -71,9 +71,20 @@ def upload_document(file):
     )
 
     if res.status_code == 200:
-        st.success("Document uploaded")
-    else:
-        st.error(res.json().get("detail", "Upload failed"))
+        st.success("Document uploaded. Processing in background...")
+
+    status_box = st.empty()
+
+    for _ in range(120):  # wait up to 4 minutes
+        status_res = requests.get(f"{API_BASE}/ingest/status/{st.session_state['logged_in_user']}")
+        if status_res.status_code == 200 and status_res.json().get("status") == "completed":
+            status_box.success("✅ Processing completed!")
+            return
+        status_box.info("⏳ Processing...")
+        time.sleep(2)
+
+    status_box.warning("⚠️ Processing is still running in background.")
+
 
 def ask_question(query: str, sms_number: str | None):
     headers = get_auth_headers()
@@ -143,4 +154,5 @@ sms_number = st.text_input(
 
 if st.button("Ask AI"):
     ask_question(query, sms_number if sms_number else None)
+
 
