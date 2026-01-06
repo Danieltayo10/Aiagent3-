@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 from dotenv import load_dotenv
+from jose import jwt
+
 
 load_dotenv()
 
@@ -62,6 +64,8 @@ def get_auth_headers():
 # ------------------------------
 # Protected Actions
 # ------------------------------
+import time
+
 def upload_document(file):
     headers = get_auth_headers()
     if not headers:
@@ -70,13 +74,34 @@ def upload_document(file):
     res = requests.post(
         f"{API_BASE}/ingest",
         files={"file": (file.name, file, file.type)},
-        headers=headers
+        headers=headers,
+        timeout=30
     )
 
-    if res.status_code == 200:
-        st.success("Document uploaded")
-    else:
+    if res.status_code != 200:
         st.error(res.json().get("detail", "Upload failed"))
+        return
+
+    st.success("✅ Document uploaded. Processing started...")
+
+    # 🔁 Poll status endpoint
+    status_box = st.empty()
+
+    # You MUST get user_id from token or backend
+    token = st.session_state["jwt_token"]
+    payload = jwt.decode(token, options={"verify_signature": False})
+    user_id = payload["user_id"]
+
+    while True:
+        r = requests.get(f"{API_BASE}/ingest/status/{user_id}", timeout=10)
+        status = r.json()["status"]
+
+        if status == "completed":
+            status_box.success("✅ Processing completed! You can now ask questions.")
+            break
+        else:
+            status_box.info("⏳ Processing document... please wait")
+            time.sleep(2)
 
 def ask_question(query: str, sms_number: str | None):
     headers = get_auth_headers()
@@ -146,4 +171,5 @@ sms_number = st.text_input(
 
 if st.button("Ask AI"):
     ask_question(query, sms_number if sms_number else None)
+
 
