@@ -2,4 +2,3 @@ streamlit
 requests
 python-dotenv
 python-jose[cryptography]
-time
