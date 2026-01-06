@@ -1,57 +1,122 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from app.database import SessionLocal
-from app.user import User
-from app.security import hash_password, verify_password, create_access_token
-from pydantic import BaseModel
-import traceback
-from typing import Union
+from fastapi import APIRouter, File, UploadFile, Depends, HTTPException, BackgroundTasks
+from app.index import add_embeddings, save_index
+from app.embedder import get_embedding
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import jwt
+from docx import Document
+import numpy as np
+import fitz  # PyMuPDF
+import pickle, os, time
+import logging
 
 router = APIRouter()
+logging.basicConfig(level=logging.INFO)
 
-def get_db():
-    db = SessionLocal()
+# -----------------------------
+# JWT config
+# -----------------------------
+JWT_SECRET = "supersecretkey123"
+ALGORITHM = "HS256"
+security = HTTPBearer()
+
+# -----------------------------
+# Ephemeral storage (Render)
+# -----------------------------
+FAISS_DIR = os.path.join("/tmp", "faiss_index")
+os.makedirs(FAISS_DIR, exist_ok=True)
+
+# -----------------------------
+# Helper: decode JWT & get user ID
+# -----------------------------
+def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> int:
+    token = credentials.credentials
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing token")
     try:
-        yield db
-    finally:
-        db.close()
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
+        user_id = payload.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        return user_id
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-class UserCreate(BaseModel):
-    username: str
-    password: str
+# -----------------------------
+# Helper: read uploaded file
+# -----------------------------
+def read_file(file: UploadFile):
+    ext = file.filename.split(".")[-1].lower()
+    if ext == "txt":
+        return file.file.read().decode("utf-8", errors="ignore")
+    elif ext == "pdf":
+        doc = fitz.open(stream=file.file.read(), filetype="pdf")
+        return "\n".join([page.get_text() for page in doc])
+    elif ext == "docx":
+        doc = Document(file.file)
+        return "\n".join([p.text for p in doc.paragraphs])
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user_id : Union[int, str]
+# -----------------------------
+# Background processing
+# -----------------------------
+def process_file_background(user_id: int, text: str):
+    start_time = time.time()
+    logging.info(f"[INFO] Starting processing for user {user_id}...")
 
-@router.post("/register", response_model=Token)
-def register(user: UserCreate, db: Session = Depends(get_db)):
+    # Split into 500-char chunks
+    chunks = [text[i:i+500] for i in range(0, len(text), 500)]
+    logging.info(f"[INFO] Total chunks to embed: {len(chunks)}")
+
+    # Generate embeddings
     try:
-        if db.query(User).filter(User.username == user.username).first():
-            raise HTTPException(status_code=400, detail="Username taken")
-        db_user = User(username=user.username, hashed_password=hash_password(user.password))
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-        token = create_access_token({"user_id": db_user.id})
-        return {"access_token": token, "user_id": db_user.id,"token_type": "bearer"}
+        embeddings = np.stack([get_embedding(c) for c in chunks])
+        logging.info(f"[INFO] Embeddings generated for user {user_id}")
     except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Registration failed: {e}")
+        logging.error(f"[ERROR] Embedding generation failed for user {user_id}: {e}")
+        return
 
-@router.post("/login", response_model=Token)
-def login(user: UserCreate, db: Session = Depends(get_db)):
+    # Update FAISS index
     try:
-        db_user = db.query(User).filter(User.username == user.username).first()
-        if not db_user or not verify_password(user.password, db_user.hashed_password):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        token = create_access_token({"user_id": db_user.id})
-        return {"access_token": token,"user_id": db_user.id,"token_type": "bearer"}
+        add_embeddings(user_id, embeddings)
+        save_index(user_id)  # ensure it's saved
+        logging.info(f"[INFO] FAISS index updated and saved for user {user_id}")
     except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Login failed: {e}")
+        logging.error(f"[ERROR] FAISS update failed for user {user_id}: {e}")
 
+    # Save chunks
+    chunks_path = os.path.join(FAISS_DIR, f"{user_id}_chunks.pkl")
+    try:
+        with open(chunks_path, "wb") as f:
+            pickle.dump(chunks, f)
+        logging.info(f"[INFO] Chunks saved for user {user_id}")
+    except Exception as e:
+        logging.error(f"[ERROR] Saving chunks failed for user {user_id}: {e}")
 
+    logging.info(f"[INFO] Finished processing for user {user_id} in {time.time() - start_time:.2f}s")
 
+# -----------------------------
+# POST /ingest
+# -----------------------------
+@router.post("/ingest")
+async def ingest(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    user_id: int = Depends(get_user_id),
+):
+    text = read_file(file)
+    background_tasks.add_task(process_file_background, user_id, text)
+    return {"status": "accepted", "message": "File is being processed in background"}
+
+# -----------------------------
+# GET /ingest/status/me
+# -----------------------------
+@router.get("/ingest/status/me")
+def ingest_status_me(user_id: int = Depends(get_user_id)):
+    chunks_path = os.path.join(FAISS_DIR, f"{user_id}_chunks.pkl")
+    if os.path.exists(chunks_path):
+        return {"status": "completed"}
+    return {"status": "processing"}
 
