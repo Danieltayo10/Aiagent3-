@@ -1,163 +1,148 @@
 import streamlit as st
 import requests
-import time
+from dotenv import load_dotenv
 
-# ---------------------------------
-# CONFIG
-# ---------------------------------
-API_BASE = "https://aiagent3-1.onrender.com/api"  # CHANGE THIS
+load_dotenv()
 
-st.set_page_config(
-    page_title="Autonomous AI Agent",
-    layout="wide"
-)
+st.set_page_config(page_title="Autonomous AI Agent", layout="wide")
 
-# ---------------------------------
-# SESSION STATE
-# ---------------------------------
-if "token" not in st.session_state:
-    st.session_state.token = None
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
+# ------------------------------
+# Base API URL
+# ------------------------------
+API_BASE = "https://aiagent3-1.onrender.com/api"
 
-# ---------------------------------
-# HELPERS
-# ---------------------------------
-def auth_headers():
-    return {"Authorization": f"Bearer {st.session_state.token}"}
+# ------------------------------
+# Session State Initialization
+# ------------------------------
+if "jwt_token" not in st.session_state:
+    st.session_state["jwt_token"] = None
+if "logged_in_user" not in st.session_state:
+    st.session_state["logged_in_user"] = None
 
-def api_post(url, **kwargs):
-    return requests.post(url, timeout=60, **kwargs)
+# ------------------------------
+# Authentication Functions
+# ------------------------------
+def register_user(username: str, password: str):
+    if len(password) > 72:
+        st.error("Password too long (max 72 characters)")
+        return
+    res = requests.post(
+        f"{API_BASE}/auth/register",
+        json={"username": username, "password": password}
+    )
+    if res.status_code == 200:
+        st.session_state["jwt_token"] = res.json()["access_token"]
+        st.session_state["logged_in_user"] = username
+        st.success(f"Registered & logged in as {username}")
+    else:
+        st.error(res.json().get("detail", "Registration failed"))
 
-def api_get(url, **kwargs):
-    return requests.get(url, timeout=60, **kwargs)
+def login_user(username: str, password: str):
+    if len(password) > 72:
+        st.error("Password too long (max 72 characters)")
+        return
+    res = requests.post(
+        f"{API_BASE}/auth/login",
+        json={"username": username, "password": password}
+    )
+    if res.status_code == 200:
+        st.session_state["jwt_token"] = res.json()["access_token"]
+        st.session_state["logged_in_user"] = username
+        st.success(f"Logged in as {username}")
+    else:
+        st.error(res.json().get("detail", "Login failed"))
 
-# ---------------------------------
-# SIDEBAR – AUTH
-# ---------------------------------
-st.sidebar.title("🔐 Authentication")
+def get_auth_headers():
+    token = st.session_state.get("jwt_token")
+    if not token:
+        st.warning("You must login first")
+        return None
+    return {"Authorization": f"Bearer {token}"}
 
-if not st.session_state.token:
-    mode = st.sidebar.radio("Mode", ["Login", "Register"])
+# ------------------------------
+# Protected Actions
+# ------------------------------
+def upload_document(file):
+    headers = get_auth_headers()
+    if not headers:
+        return
+
+    res = requests.post(
+        f"{API_BASE}/ingest",
+        files={"file": (file.name, file, file.type)},
+        headers=headers
+    )
+
+    if res.status_code == 200:
+        st.success("Document uploaded")
+    else:
+        st.error(res.json().get("detail", "Upload failed"))
+
+def ask_question(query: str, sms_number: str | None):
+    headers = get_auth_headers()
+    if not headers:
+        return
+
+    payload = {"query": query}
+
+    if sms_number:
+        payload["send_sms_to"] = sms_number  # ✅ matches query.py exactly
+
+    res = requests.post(
+        f"{API_BASE}/query",
+        json=payload,
+        headers=headers
+    )
+
+    if res.status_code == 200:
+        answer = res.json()["answer"]
+        st.subheader("AI Answer")
+        st.write(answer)
+
+        if sms_number:
+            st.success(f"📩 Answer summary sent via SMS to {sms_number}")
+    else:
+        st.error(res.json().get("detail", "Query failed"))
+
+# ------------------------------
+# Sidebar: Authentication
+# ------------------------------
+st.sidebar.title("User Authentication")
+
+if st.session_state.get("logged_in_user"):
+    st.sidebar.success(f"Logged in as {st.session_state['logged_in_user']}")
+    if st.sidebar.button("Logout"):
+        st.session_state["jwt_token"] = None
+        st.session_state["logged_in_user"] = None
+        st.sidebar.info("Logged out")
+else:
+    mode = st.sidebar.selectbox("Mode", ["Login", "Register"])
     username = st.sidebar.text_input("Username")
     password = st.sidebar.text_input("Password", type="password")
 
     if st.sidebar.button(mode):
-        endpoint = "/auth/login" if mode == "Login" else "/auth/register"
-        try:
-            r = api_post(
-                f"{API_BASE}{endpoint}",
-                json={"username": username, "password": password}
-            )
-            if r.ok:
-                data = r.json()
-                st.session_state.token = data["access_token"]
-                st.session_state.user_id = data["user_id"]
-                st.sidebar.success("Authenticated")
-                st.rerun()
-            else:
-                st.sidebar.error(r.text)
-        except Exception as e:
-            st.sidebar.error(str(e))
-else:
-    st.sidebar.success(f"Logged in as user {st.session_state.user_id}")
-    if st.sidebar.button("Logout"):
-        st.session_state.token = None
-        st.session_state.user_id = None
-        st.rerun()
+        if mode == "Register":
+            register_user(username, password)
+        else:
+            login_user(username, password)
 
-# ---------------------------------
-# MAIN UI
-# ---------------------------------
-st.title("🤖 Autonomous Multi-Client AI Agent")
+# ------------------------------
+# Main UI
+# ------------------------------
+st.title("Autonomous AI Agent (SMS Enabled)")
 
-if not st.session_state.token:
-    st.warning("Please login to continue.")
-    st.stop()
+# Upload docs
+st.subheader("Upload Documents")
+file = st.file_uploader("PDF, TXT, DOCX", type=["pdf", "txt", "docx"])
+if file and st.button("Upload"):
+    upload_document(file)
 
-tabs = st.tabs(["📄 Ingest", "🔎 Query", "📲 SMS Automation"])
+# Query + SMS
+st.subheader("Ask a Question")
+query = st.text_input("Your question")
+sms_number = st.text_input(
+    "Send summary via SMS (optional, e.g. +2349123456789)"
+)
 
-# =================================
-# INGEST TAB
-# =================================
-with tabs[0]:
-    st.header("📄 Document Ingestion")
-
-    uploaded = st.file_uploader(
-        "Upload a document",
-        type=["txt", "pdf", "docx"]
-    )
-
-    if uploaded and st.button("Ingest Document"):
-        try:
-           files = {"file": (uploaded.name, uploaded, uploaded.type)}
-           r = api_post(f"{API_BASE}/ingest", headers=auth_headers(), files=files)
-           st.success("File accepted for processing")
-        except Exception as e:
-            st.error(str(e))
-
-    if st.button("Check Ingest Status"):
-        try:
-            r = api_get(
-                f"{API_BASE}/ingest/status/{st.session_state.user_id}"
-            )
-            st.info(r.json()["status"])
-        except Exception as e:
-            st.error(str(e))
-
-# =================================
-# QUERY TAB
-# =================================
-with tabs[1]:
-    st.header("🔎 Query Your Documents")
-
-    query = st.text_area("Ask a question")
-    sms_to = st.text_input("Optional: Send answer via SMS (E.164)")
-
-    if st.button("Run Query"):
-        payload = {"query": query}
-        if sms_to:
-            payload["send_sms_to"] = sms_to
-
-        try:
-            r = api_post(
-                f"{API_BASE}/query",
-                headers=auth_headers(),
-                json=payload
-            )
-            if r.ok:
-                st.success("Answer")
-                st.write(r.json()["answer"])
-            else:
-                st.error(r.text)
-        except Exception as e:
-            st.error(str(e))
-
-# =================================
-# AUTOMATION / SMS TAB
-# =================================
-with tabs[2]:
-    st.header("📲 Send SMS (Automation)")
-
-    msg = st.text_area("Message")
-    to_number = st.text_input("Recipient Number (E.164)")
-
-    if st.button("Send SMS"):
-        try:
-            r = api_post(
-                f"{API_BASE}/send_sms",
-                headers=auth_headers(),
-                params={
-                    "msg": msg,
-                    "to_number": to_number
-                }
-            )
-            if r.ok:
-                st.success("SMS Sent")
-                st.json(r.json())
-            else:
-                st.error(r.text)
-        except Exception as e:
-            st.error(str(e))
-
-
+if st.button("Ask AI"):
+    ask_question(query, sms_number if sms_number else None)
