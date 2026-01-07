@@ -10,7 +10,7 @@ from app.security import decode_access_token
 from app.index import get_index
 from app.embedder import get_embedding
 from app.clientell import client  # your OpenAI client
-from app.routes.ingest import get_status  # import your status helper
+from app.ingest import get_status  # import your status helper
 
 router = APIRouter()
 security = HTTPBearer()
@@ -98,3 +98,4 @@ async def query_agent(request: QueryRequest, background_tasks: BackgroundTasks, 
         background_tasks.add_task(send_sms_background, request.send_sms_to, summary)
 
     return {"answer": answer}
+
