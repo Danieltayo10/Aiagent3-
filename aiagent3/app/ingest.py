@@ -10,7 +10,7 @@ import time
 import logging
 import asyncio
 
-from app.index import add_embeddings, save_index
+from app.index import add_embeddings
 from app.embedder import get_embedding
 
 # --------------------------------
@@ -105,7 +105,6 @@ def process_file_background(user_id: int, text: str):
 
         # Update FAISS index
         add_embeddings(user_id, embeddings)
-        save_index(user_id)
         logging.info(f"[INGEST] FAISS index updated")
 
         # Save chunks
@@ -145,3 +144,4 @@ async def ingest(
 @router.get("/ingest/status/me")
 def ingest_status_me(user_id: int = Depends(get_user_id)):
     return {"status": get_status(user_id)}
+
