@@ -89,6 +89,8 @@ def upload_document(file):
         )
         res.raise_for_status()
         st.session_state["upload_status"] = "processing"
+        st.session_state["last_poll"] = 0  # reset poll timer
+        st.success("File uploaded! Processing has started.")
     except Exception as e:
         st.error(f"Upload failed: {e}")
         st.session_state["upload_status"] = None
@@ -100,8 +102,8 @@ def poll_status():
     if st.session_state["upload_status"] != "processing":
         return
 
-    # Poll only every 2 seconds
-    if time.time() - st.session_state["last_poll"] < 2:
+    # Poll only every 5 minutes (300s)
+    if time.time() - st.session_state["last_poll"] < 300:
         return
     st.session_state["last_poll"] = time.time()
 
@@ -110,18 +112,23 @@ def poll_status():
         return
 
     try:
-        res = requests.get(f"{API_BASE}/ingest/status/me", headers=headers, timeout=5)
+        res = requests.get(f"{API_BASE}/ingest/status/me", headers=headers, timeout=15)
         res.raise_for_status()
         status = res.json().get("status")
         status_box = st.empty()
+
         if status == "completed":
             status_box.success("✅ Processing completed!")
             st.session_state["upload_status"] = "done"
+        elif status == "failed":
+            status_box.error("❌ Processing failed. Please try again.")
+            st.session_state["upload_status"] = None
         else:
-            status_box.info("⏳ Processing...")
-            st.rerun()
+            status_box.info("⏳ Processing... (Render may be cold starting)")
+            st.rerun()  # rerun the script to continue polling
     except Exception as e:
         st.warning(f"Could not check status: {e}")
+        # Keep status as processing; next poll in 5 mins
 
 # ------------------------------
 # Ask Question
@@ -140,7 +147,7 @@ def ask_question(query: str, sms_number: str | None = None):
             f"{API_BASE}/query",
             json=payload,
             headers=headers,
-            timeout=15
+            timeout=200
         )
         res.raise_for_status()
         answer = res.json()["answer"]
@@ -163,6 +170,7 @@ if st.session_state.get("logged_in_user"):
         st.session_state["logged_in_user"] = None
         st.session_state["user_id"] = None
         st.session_state["upload_status"] = None
+        st.session_state["last_poll"] = 0
         st.sidebar.info("Logged out")
 else:
     mode = st.sidebar.selectbox("Mode", ["Login", "Register"])
@@ -191,7 +199,6 @@ poll_status()
 # Ask questions
 st.subheader("Ask a Question")
 query = st.text_input("Your question")
-sms_number = st.text_input("Send summary via SMS (optional, e.g. +2349123456789)")
+sms_number = st.text_input("Send summary via SMS (optional, e.g. +1(415) 555-0132)")
 if st.button("Ask AI") and query.strip():
     ask_question(query, sms_number if sms_number else None)
-
