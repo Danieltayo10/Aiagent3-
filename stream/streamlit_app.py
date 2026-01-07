@@ -119,7 +119,7 @@ def poll_status():
             st.session_state["upload_status"] = "done"
         else:
             status_box.info("⏳ Processing...")
-            st.experimental_rerun()
+            st.rerun()
     except Exception as e:
         st.warning(f"Could not check status: {e}")
 
@@ -194,3 +194,4 @@ query = st.text_input("Your question")
 sms_number = st.text_input("Send summary via SMS (optional, e.g. +2349123456789)")
 if st.button("Ask AI") and query.strip():
     ask_question(query, sms_number if sms_number else None)
+
