@@ -1,30 +1,49 @@
+# app/embedder.py
+import os
+import requests
 import numpy as np
-import threading
 import logging
 
-_model = None
-_model_lock = threading.Lock()
+logging.basicConfig(level=logging.INFO)
 
-def get_model():
-    global _model
-    if _model is None:
-        with _model_lock:
-            if _model is None:
-                logging.info("[EMBEDDER] Loading SentenceTransformer model...")
-                from sentence_transformers import SentenceTransformer
+HF_TOKEN = os.getenv("HF_API_TOKEN")
 
-                _model = SentenceTransformer("all-MiniLM-L12-v2")
-                logging.info("[EMBEDDER] Model loaded successfully")
-    return _model
+if not HF_TOKEN:
+    logging.warning("[EMBEDDER] HF_API_TOKEN is not set!")
+
+API_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
+
+HEADERS = {
+    "Authorization": f"Bearer {HF_TOKEN}"
+}
 
 def get_embedding(text: str):
-    model = get_model()
+    # prevent insanely large inputs
+    if len(text) > 8000:
+        text = text[:8000]
 
-    # Prevent insanely large inputs from killing RAM
-    if len(text) > 4000:
-        text = text[:4000]
+    logging.info("[EMBEDDER] Requesting embedding from HuggingFace...")
 
-    emb = model.encode(text, show_progress_bar=False)
+    try:
+        r = requests.post(
+            API_URL,
+            headers=HEADERS,
+            json={"inputs": text},
+            timeout=60
+        )
+        r.raise_for_status()
+    except Exception as e:
+        logging.error(f"[EMBEDDER] HuggingFace request failed: {e}")
+        raise
 
-    return np.array(emb, dtype="float32")
+    data = r.json()
 
+    # HF returns: [[384 floats]]
+    if not isinstance(data, list) or not isinstance(data[0], list):
+        raise RuntimeError(f"Unexpected HF response: {data}")
+
+    vec = data[0]
+
+    logging.info("[EMBEDDER] Embedding received successfully")
+
+    return np.array(vec, dtype="float32")
