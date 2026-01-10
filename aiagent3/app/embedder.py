@@ -13,7 +13,7 @@ def get_model():
                 logging.info("[EMBEDDER] Loading SentenceTransformer model...")
                 from sentence_transformers import SentenceTransformer
 
-                _model = SentenceTransformer("all-MiniLM-L6-v2")
+                _model = SentenceTransformer("all-MiniLM-L12-v2")
                 logging.info("[EMBEDDER] Model loaded successfully")
     return _model
 
@@ -27,3 +27,4 @@ def get_embedding(text: str):
     emb = model.encode(text, show_progress_bar=False)
 
     return np.array(emb, dtype="float32")
+
