@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import os
 import requests
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from .security import decode_access_token
+from app.security import decode_access_token
 
 load_dotenv()
 
@@ -71,3 +71,4 @@ def send_sms(msg: str, to_number: str, user_id: int = Depends(get_user_id)):
         "summary": summary,
         "twilio_response": response.json()
     }
+
