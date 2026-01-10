@@ -1,4 +1,3 @@
-# app/embedder.py
 import os
 import requests
 import numpy as np
@@ -11,18 +10,16 @@ HF_TOKEN = os.getenv("HF_API_TOKEN")
 if not HF_TOKEN:
     logging.warning("[EMBEDDER] HF_API_TOKEN is not set!")
 
-API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
+API_URL = "https://router.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
 
-HEADERS = {
-    "Authorization": f"Bearer {HF_TOKEN}"
-}
+HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 def get_embedding(text: str):
-    # prevent huge inputs
+    # limit input size
     if len(text) > 8000:
         text = text[:8000]
 
-    logging.info("[EMBEDDER] Requesting embedding from HuggingFace...")
+    logging.info("[EMBEDDER] Requesting embedding from HuggingFace Router...")
 
     payload = {
         "inputs": text,
@@ -30,22 +27,17 @@ def get_embedding(text: str):
     }
 
     try:
-        r = requests.post(
-            API_URL,
-            headers=HEADERS,
-            json=payload,
-            timeout=120
-        )
+        r = requests.post(API_URL, headers=HEADERS, json=payload, timeout=120)
         r.raise_for_status()
     except Exception as e:
-        logging.error(f"[EMBEDDER] HuggingFace request failed: {e} | Response: {getattr(r, 'text', None)}")
+        logging.error(f"[EMBEDDER] HuggingFace Router request failed: {e} | Response: {getattr(r,'text',None)}")
         raise
 
     data = r.json()
 
-    # HF returns: [[float, float, ...]]
+    # Expect [[float, float, ...]]
     if not isinstance(data, list):
-        raise RuntimeError(f"Unexpected HF response: {data}")
+        raise RuntimeError(f"Unexpected HF Router response: {data}")
 
     vec = data[0]
 
